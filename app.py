@@ -1,57 +1,85 @@
 
 import streamlit as st
 import requests
+import os
 
-def render_gerador(tipo, key_prefix):
+# --- 1. CONFIGURAÇÃO VISUAL (SKIN ESCURA IGUAL À IMAGEM) ---
+st.set_page_config(page_title="Gerador Pro AI", layout="centered")
+
+st.markdown("""
+    <style>
+    /* Fundo escuro global */
+    .stApp { background-color: #0e1117; color: white; }
+    
+    /* Ajuste da área principal */
+    .block-container { padding-top: 2rem; }
+    
+    /* Caixa de Upload */
+    .stFileUploader { background-color: #1e1e26; border-radius: 10px; padding: 15px; }
+    
+    /* Caixa de Texto */
+    .stTextArea textarea { background-color: #1e1e26; color: white; border: 1px solid #333; border-radius: 10px; height: 150px; }
+    
+    /* Botão Gerar */
+    div.stButton > button { 
+        background-color: #1e1e26; color: white; border: 1px solid #444; 
+        border-radius: 8px; height: 3em; width: 100%; font-weight: bold;
+    }
+    div.stButton > button:hover { border-color: #ff4b4b; color: #ff4b4b; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- 2. LÓGICA DO APP ---
+st.title("🎨 Gerador Criativo AI")
+
+tab1, tab2 = st.tabs(["🖼️ Gerar Imagem", "🎥 Gerar Vídeo"])
+
+def processar_geracao(tipo, key_prefix):
     st.subheader(f"Configurações de {tipo}")
     
-    # 1. Referências Visualizadas
+    # Upload de referências
     uploaded_files = st.file_uploader(f"Carregar até 5 referências", accept_multiple_files=True, key=f"up_{key_prefix}")
+    
+    # Grid de miniaturas das referências
     if uploaded_files:
         cols = st.columns(5)
         for i, file in enumerate(uploaded_files[:5]):
-            with cols[i]:
-                st.image(file, use_container_width=True)
-    
-    # 2. Prompt
+            cols[i].image(file, use_container_width=True)
+            
+    # Prompt
     prompt = st.text_area("Descreva seu projeto:", key=f"prompt_{key_prefix}")
     
-    # 3. Botão de Geração
+    # Botão Gerar
     if st.button(f"🚀 GERAR {tipo.upper()}", key=f"btn_{key_prefix}"):
-        with st.spinner("Gerando sua criação..."):
-            # Aqui entra a chamada da sua API (Ex: Replicate)
-            # Vamos simular que o 'resultado' é a URL do arquivo
-            resultado_url = "https://example.com/imagem.png" 
-            
-            # Guardamos o resultado na sessão para o botão de download encontrar
-            st.session_state[f"resultado_{key_prefix}"] = resultado_url
-            
-    # 4. EXIBIÇÃO DO RESULTADO E BOTÃO DE DOWNLOAD
-    if f"resultado_{key_prefix}" in st.session_state:
-        res = st.session_state[f"resultado_{key_prefix}"]
-        
-        st.markdown("### Resultado:")
-        if tipo == "Imagem":
-            st.image(res)
+        if not prompt:
+            st.warning("Por favor, digite um prompt.")
         else:
-            st.video(res)
-            
-        # --- O BOTÃO DE DOWNLOAD ---
-        # Baixamos o conteúdo da URL para o navegador
-        try:
-            conteudo = requests.get(res).content
-            st.download_button(
-                label="📥 BAIXAR RESULTADO",
-                data=conteudo,
-                file_name=f"projeto_{tipo}.{'png' if tipo == 'Imagem' else 'mp4'}",
-                mime="image/png" if tipo == "Imagem" else "video/mp4",
-                key=f"dl_{key_prefix}",
-                use_container_width=True
-            )
-        except:
-            st.error("Erro ao preparar o download.")
+            with st.spinner("IA processando..."):
+                # AQUI ENTRA A CHAMADA DA SUA API (Ex: Replicate)
+                # Simulação:
+                res = "https://via.placeholder.com/600" 
+                st.session_state[f"res_{key_prefix}"] = res
+    
+    # Exibir Resultado e Download
+    if f"res_{key_prefix}" in st.session_state:
+        st.markdown("### Resultado:")
+        resultado = st.session_state[f"res_{key_prefix}"]
+        if tipo == "Imagem": st.image(resultado)
+        else: st.video(resultado)
+        
+        # Botão Baixar
+        st.download_button(
+            label="📥 BAIXAR RESULTADO",
+            data=requests.get(resultado).content,
+            file_name=f"projeto_{tipo}.{'png' if tipo=='Imagem' else 'mp4'}",
+            key=f"dl_{key_prefix}",
+            use_container_width=True
+        )
 
-# Estrutura das abas
-tab1, tab2 = st.tabs(["🖼️ Gerar Imagem", "🎥 Gerar Vídeo"])
-with tab1: render_gerador("Imagem", "img")
-with tab2: render_gerador("Vídeo", "vid")
+with tab1: processar_geracao("Imagem", "img")
+with tab2: processar_geracao("Vídeo", "vid")
+
+# --- 3. LOTE ---
+st.markdown("---")
+if st.expander("📦 Ver Fila de Produção em Lote"):
+    st.info("Aqui aparecerão seus projetos adicionados.")
