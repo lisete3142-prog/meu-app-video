@@ -1,85 +1,102 @@
-
 import streamlit as st
-import requests
+import zipfile
 import os
 
-# --- 1. CONFIGURAÇÃO VISUAL (SKIN ESCURA IGUAL À IMAGEM) ---
-st.set_page_config(page_title="Gerador Pro AI", layout="centered")
-
-st.markdown("""
+# --- CSS MODERNO ---
+def aplicar_css():
+    st.markdown("""
     <style>
-    /* Fundo escuro global */
-    .stApp { background-color: #0e1117; color: white; }
+    .block-container { padding-top: 2rem; max-width: 900px; }
+    h1 { font-size: 2.5rem; color: #222; text-align: center; }
+    h2, h3 { color: #333; }
     
-    /* Ajuste da área principal */
-    .block-container { padding-top: 2rem; }
-    
-    /* Caixa de Upload */
-    .stFileUploader { background-color: #1e1e26; border-radius: 10px; padding: 15px; }
-    
-    /* Caixa de Texto */
-    .stTextArea textarea { background-color: #1e1e26; color: white; border: 1px solid #333; border-radius: 10px; height: 150px; }
-    
-    /* Botão Gerar */
-    div.stButton > button { 
-        background-color: #1e1e26; color: white; border: 1px solid #444; 
-        border-radius: 8px; height: 3em; width: 100%; font-weight: bold;
+    /* Botões principais */
+    div.stButton > button {
+        width: 100%; height: 55px; font-size: 18px; border-radius: 12px;
+        border: none; background: linear-gradient(90deg,#007bff,#00c6ff);
+        color: white; font-weight: bold;
     }
-    div.stButton > button:hover { border-color: #ff4b4b; color: #ff4b4b; }
+    div.stButton > button:hover { opacity: 0.9; }
+    
+    /* Área de texto */
+    .stTextArea textarea {
+        border-radius: 12px; border: 2px solid #ccc; padding: 12px;
+        font-size: 16px;
+    }
+    
+    /* Upload */
+    .stFileUploader {
+        border: 2px dashed #aaa; border-radius: 12px; padding: 20px;
+        background-color: #f9f9f9;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader { font-weight: bold; color: #007bff; }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- 2. LÓGICA DO APP ---
+aplicar_css()
+
+# --- TÍTULO ---
 st.title("🎨 Gerador Criativo AI")
+st.markdown("Crie imagens e vídeos a partir de texto com referências visuais para manter consistência.")
 
+# --- ABAS ---
 tab1, tab2 = st.tabs(["🖼️ Gerar Imagem", "🎥 Gerar Vídeo"])
 
-def processar_geracao(tipo, key_prefix):
+# --- FUNÇÃO DE GERAÇÃO ---
+def render_gerador(tipo):
     st.subheader(f"Configurações de {tipo}")
     
-    # Upload de referências
-    uploaded_files = st.file_uploader(f"Carregar até 5 referências", accept_multiple_files=True, key=f"up_{key_prefix}")
+    # Seleção de modelo (nomes genéricos e amigáveis)
+    modelo = st.selectbox(f"Escolha o modelo de {tipo}", 
+                          ["Modelo Gratuito", "Modelo Avançado", "Modelo Premium"])
     
-    # Grid de miniaturas das referências
-    if uploaded_files:
-        cols = st.columns(5)
-        for i, file in enumerate(uploaded_files[:5]):
-            cols[i].image(file, use_container_width=True)
-            
     # Prompt
-    prompt = st.text_area("Descreva seu projeto:", key=f"prompt_{key_prefix}")
+    prompt = st.text_area("✍️ Descreva seu projeto:", 
+                          placeholder="Ex: Uma personagem futurista em diferentes cenários...")
     
-    # Botão Gerar
-    if st.button(f"🚀 GERAR {tipo.upper()}", key=f"btn_{key_prefix}"):
+    # Upload de referências
+    st.markdown("### 📎 Referências (mínimo 2 para consistência)")
+    arquivos = st.file_uploader("Arraste até 5 imagens aqui", 
+                                accept_multiple_files=True, type=['png','jpg','jpeg'])
+    
+    # Proporção
+    proporcao = st.radio("📐 Escolha o formato:", 
+                         ["1:1 (Quadrado)", "9:16 (Vertical)", "16:9 (Horizontal)"], horizontal=True)
+    
+    # Botão de geração
+    if st.button(f"🚀 GERAR {tipo.upper()}", use_container_width=True):
         if not prompt:
-            st.warning("Por favor, digite um prompt.")
+            st.error("Digite um prompt para começar!")
+        elif len(arquivos) < 2:
+            st.error("Envie pelo menos 2 imagens de referência para manter consistência dos personagens!")
         else:
-            with st.spinner("IA processando..."):
-                # AQUI ENTRA A CHAMADA DA SUA API (Ex: Replicate)
-                # Simulação:
-                res = "https://via.placeholder.com/600" 
-                st.session_state[f"res_{key_prefix}"] = res
+            st.success(f"Gerando {tipo} com {modelo} no formato {proporcao}...")
+            # Aqui entraria a integração real com API de IA
+            st.image("exemplo.png", caption="Pré-visualização do resultado")  # Exemplo
+            with open("exemplo.png", "rb") as file:
+                st.download_button("📥 Baixar Resultado", file, file_name="resultado.png", mime="image/png")
     
-    # Exibir Resultado e Download
-    if f"res_{key_prefix}" in st.session_state:
-        st.markdown("### Resultado:")
-        resultado = st.session_state[f"res_{key_prefix}"]
-        if tipo == "Imagem": st.image(resultado)
-        else: st.video(resultado)
-        
-        # Botão Baixar
-        st.download_button(
-            label="📥 BAIXAR RESULTADO",
-            data=requests.get(resultado).content,
-            file_name=f"projeto_{tipo}.{'png' if tipo=='Imagem' else 'mp4'}",
-            key=f"dl_{key_prefix}",
-            use_container_width=True
-        )
+    # Botão de lote
+    if st.button("➕ Adicionar à Fila de Lote"):
+        if len(arquivos) < 2:
+            st.error("Para produção em lote, é obrigatório enviar pelo menos 2 referências!")
+        else:
+            st.info("Projeto adicionado à fila de produção!")
 
-with tab1: processar_geracao("Imagem", "img")
-with tab2: processar_geracao("Vídeo", "vid")
+# --- EXECUÇÃO ---
+with tab1:
+    render_gerador("Imagem")
+with tab2:
+    render_gerador("Vídeo")
 
-# --- 3. LOTE ---
-st.markdown("---")
-if st.expander("📦 Ver Fila de Produção em Lote"):
-    st.info("Aqui aparecerão seus projetos adicionados.")
+# --- PAINEL DE LOTE ---
+with st.expander("📦 Fila de Produção em Lote"):
+    st.write("Aqui aparecerá o histórico dos projetos adicionados.")
+    if st.button("📥 Baixar Tudo (ZIP)"):
+        # Exemplo de criação de ZIP
+        with zipfile.ZipFile("resultados.zip", "w") as zipf:
+            zipf.write("exemplo.png")
+        with open("resultados.zip", "rb") as file:
+            st.download_button("📥 Baixar ZIP", file, file_name="resultados.zip", mime="application/zip")
